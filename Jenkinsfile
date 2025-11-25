@@ -16,17 +16,18 @@ pipeline {
 
         stage('Configure AWS Credentials') {
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'aws-creds',
-                    usernameVariable: 'AWS_ACCESS_KEY_ID',
-                    passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                )]) {
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'aws-creds',
+                     accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']
+                ]) {
                     sh '''
-                      echo "Configuring AWS credentials..."
-                      aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
-                      aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
-                      aws configure set default.region ${AWS_REGION}
-                      aws sts get-caller-identity
+                        echo "Configuring AWS credentials..."
+                        aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+                        aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+                        aws configure set default.region ${AWS_REGION}
+                        aws sts get-caller-identity
                     '''
                 }
             }
@@ -51,33 +52,51 @@ pipeline {
 
         stage('Build & Push Docker Image to ECR') {
             steps {
-                sh '''
-                  echo "Logging into ECR..."
-                  aws ecr get-login-password --region ${AWS_REGION} \
-                    | docker login --username AWS --password-stdin ${ECR_URL}
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'aws-creds',
+                     accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']
+                ]) {
 
-                  echo "Building Docker image..."
-                '''
-                dir('app') {
                     sh '''
-                      docker build -t ${ECR_URL}:v${BUILD_NUMBER} .
-                      docker push ${ECR_URL}:v${BUILD_NUMBER}
+                        echo "Logging into ECR..."
+                        aws ecr get-login-password --region ${AWS_REGION} \
+                          | docker login --username AWS --password-stdin ${ECR_URL}
+
+                        echo "Building Docker image..."
                     '''
+
+                    dir('app') {
+                        sh '''
+                          docker build -t ${ECR_URL}:v${BUILD_NUMBER} .
+                          docker push ${ECR_URL}:v${BUILD_NUMBER}
+                        '''
+                    }
                 }
             }
         }
 
         stage('Deploy to EKS using Helm') {
             steps {
-                sh '''
-                  aws eks --region ${AWS_REGION} update-kubeconfig --name ${CLUSTER_NAME}
-                '''
-                dir('helm/my-app') {
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'aws-creds',
+                     accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']
+                ]) {
+
                     sh '''
-                      helm upgrade --install my-app . \
-                        --set image.repository=${ECR_URL} \
-                        --set image.tag=v${BUILD_NUMBER}
+                      aws eks --region ${AWS_REGION} update-kubeconfig --name ${CLUSTER_NAME}
                     '''
+
+                    dir('helm/my-app') {
+                        sh '''
+                          helm upgrade --install my-app . \
+                            --set image.repository=${ECR_URL} \
+                            --set image.tag=v${BUILD_NUMBER}
+                        '''
+                    }
                 }
             }
         }
