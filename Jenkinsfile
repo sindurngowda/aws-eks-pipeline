@@ -23,7 +23,7 @@ pipeline {
                      secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']
                 ]) {
                     sh '''
-                        echo "Configuring AWS credentials..."
+                        echo "Configuring AWS CLI..."
                         aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
                         aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
                         aws configure set default.region ${AWS_REGION}
@@ -36,10 +36,18 @@ pipeline {
         stage('Terraform Provision Infra') {
             steps {
                 dir('terraform') {
-                    sh '''
-                      terraform init
-                      terraform apply -auto-approve
-                    '''
+                    withCredentials([
+                        [$class: 'AmazonWebServicesCredentialsBinding',
+                         credentialsId: 'aws-creds',
+                         accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                         secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']
+                    ]) {
+                        sh '''
+                          terraform init
+                          terraform apply -auto-approve
+                        '''
+                    }
+
                     script {
                         env.ECR_URL = sh(
                             returnStdout: true,
@@ -58,13 +66,12 @@ pipeline {
                      accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                      secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']
                 ]) {
-
                     sh '''
                         echo "Logging into ECR..."
                         aws ecr get-login-password --region ${AWS_REGION} \
                           | docker login --username AWS --password-stdin ${ECR_URL}
 
-                        echo "Building Docker image..."
+                        echo "Building image..."
                     '''
 
                     dir('app') {
@@ -85,7 +92,6 @@ pipeline {
                      accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                      secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']
                 ]) {
-
                     sh '''
                       aws eks --region ${AWS_REGION} update-kubeconfig --name ${CLUSTER_NAME}
                     '''
