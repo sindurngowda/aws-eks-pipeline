@@ -1,0 +1,18 @@
+replicaCount: 2
+
+image:
+  repository: 181080507715.dkr.ecr.ap-south-2.amazonaws.com/my-app
+  pullPolicy: IfNotPresent
+  tag: "1"
+
+service:
+  type: LoadBalancer
+  port: 80
+  targetPort: 3000
+
+ingress:
+  enabled: false
+
+env:
+  PORT: "3000"
+

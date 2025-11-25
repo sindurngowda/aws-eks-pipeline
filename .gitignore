@@ -1,0 +1,13 @@
+# Terraform
+.terraform/
+**/.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+crash.log
+
+# Local overrides
+*.tfvars
+*.tfvars.json
+
+# Executables
+*.exe
