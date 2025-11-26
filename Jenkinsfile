@@ -42,23 +42,35 @@ pipeline {
                          accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                          secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']
                     ]) {
-                        sh '''
-                          terraform init
-                          terraform apply -auto-approve
-                        '''
-                    }
 
-                    script {
-                        env.ECR_URL = sh(
-                            returnStdout: true,
-                            script: "terraform output -raw ecr_repository_url"
-                        ).trim()
+                        /* ------------- SAFE TERRAFORM EXECUTION ------------- */
+                        timeout(time: 45, unit: 'MINUTES') {
+                            sh '''
+                                set -e
+                                echo "Running Terraform Init..."
+                                terraform init -input=false -no-color
+
+                                echo "Running Terraform Apply..."
+                                terraform apply -auto-approve -input=false -no-color -parallelism=1
+                            '''
+                        }
+                        /* ----------------------------------------------------- */
+
+                        script {
+                            env.ECR_URL = sh(
+                                returnStdout: true,
+                                script: "terraform output -raw ecr_repository_url"
+                            ).trim()
+                        }
                     }
                 }
             }
         }
 
         stage('Build & Push Docker Image to ECR') {
+            when {
+                expression { return env.ECR_URL?.trim() }
+            }
             steps {
                 withCredentials([
                     [$class: 'AmazonWebServicesCredentialsBinding',
@@ -69,15 +81,15 @@ pipeline {
                     sh '''
                         echo "Logging into ECR..."
                         aws ecr get-login-password --region ${AWS_REGION} \
-                          | docker login --username AWS --password-stdin ${ECR_URL}
+                            | docker login --username AWS --password-stdin ${ECR_URL}
 
-                        echo "Building image..."
+                        echo "Building Docker image..."
                     '''
 
                     dir('app') {
                         sh '''
-                          docker build -t ${ECR_URL}:v${BUILD_NUMBER} .
-                          docker push ${ECR_URL}:v${BUILD_NUMBER}
+                            docker build -t ${ECR_URL}:v${BUILD_NUMBER} .
+                            docker push ${ECR_URL}:v${BUILD_NUMBER}
                         '''
                     }
                 }
@@ -85,6 +97,9 @@ pipeline {
         }
 
         stage('Deploy to EKS using Helm') {
+            when {
+                expression { return env.ECR_URL?.trim() }
+            }
             steps {
                 withCredentials([
                     [$class: 'AmazonWebServicesCredentialsBinding',
@@ -93,18 +108,28 @@ pipeline {
                      secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']
                 ]) {
                     sh '''
-                      aws eks --region ${AWS_REGION} update-kubeconfig --name ${CLUSTER_NAME}
+                        echo "Updating kubeconfig for EKS..."
+                        aws eks --region ${AWS_REGION} update-kubeconfig --name ${CLUSTER_NAME}
                     '''
 
                     dir('helm/my-app') {
                         sh '''
-                          helm upgrade --install my-app . \
-                            --set image.repository=${ECR_URL} \
-                            --set image.tag=v${BUILD_NUMBER}
+                            helm upgrade --install my-app . \
+                              --set image.repository=${ECR_URL} \
+                              --set image.tag=v${BUILD_NUMBER}
                         '''
                     }
                 }
             }
+        }
+    }
+
+    post {
+        failure {
+            echo "Pipeline failed. Check logs."
+        }
+        success {
+            echo "Pipeline completed successfully!"
         }
     }
 }
