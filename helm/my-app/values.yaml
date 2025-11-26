@@ -6,13 +6,11 @@ image:
   tag: "1"
 
 service:
-  type: LoadBalancer
+  type: NodePort
   port: 80
-  targetPort: 3000
+  targetPort: 80
+  nodePort: 30080   
 
-ingress:
-  enabled: false
 
-env:
-  PORT: "3000"
+
 
