@@ -57,9 +57,8 @@ pipeline {
             }
         }
 
-        /* -------------------------
-           Use HOST DOCKER (Jenkins user has permission)
-        ------------------------- */
+
+        
         stage('Build & Push Docker Image') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
@@ -113,7 +112,7 @@ pipeline {
     }
 
     post {
-        success { echo "🚀 Pipeline Completed Successfully!" }
-        failure { echo "❌ Pipeline Failed. Check logs." }
+        success { echo "Pipeline Completed Successfully!" }
+        failure { echo "Pipeline Failed. Check logs." }
     }
 }
