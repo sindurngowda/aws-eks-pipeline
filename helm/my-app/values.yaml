@@ -6,10 +6,10 @@ image:
   tag: "1"
 
 service:
-  type: NodePort
+  type: LoadBalancer
   port: 80
   targetPort: 80
-  nodePort: 30080
+
 
 env:
   PORT: "3000"
