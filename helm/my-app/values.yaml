@@ -1,7 +1,7 @@
 replicaCount: 2
 
 image:
-  repository: 181080507715.dkr.ecr.ap-south-2.amazonaws.com/my-app
+  repository: 181080507715.dkr.ecr.ap-south-1.amazonaws.com/my-app
   pullPolicy: IfNotPresent
   tag: "1"
 
