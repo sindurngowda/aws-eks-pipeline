@@ -8,7 +8,3 @@ terraform {
   }
 }
 
-provider "aws" {
-  region = var.region
-  # DO NOT put access_key or secret_key here
-}
