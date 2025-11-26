@@ -79,6 +79,8 @@ A single **Build Now** in Jenkins performs full provisioning + deployment.
 
 
 ## 5. Validation Commands
+
+
 kubectl get nodes
 kubectl get pods
 kubectl get svc
