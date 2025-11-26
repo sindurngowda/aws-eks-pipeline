@@ -11,5 +11,8 @@ service:
   targetPort: 80
   nodePort: 30080
 
+env:
+  PORT: "3000"
+
 ingress:
   enabled: false
