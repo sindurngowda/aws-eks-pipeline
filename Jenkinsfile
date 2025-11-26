@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION    = "ap-south-2"
+        AWS_REGION    = "ap-south-1"
         CLUSTER_NAME  = "my-eks-cluster"
         TF_PLUGIN_CACHE_DIR = "${HOME}/.terraform.d/plugin-cache"
     }
